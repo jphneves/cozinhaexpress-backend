@@ -8,9 +8,17 @@ import { PrismaClient } from '@prisma/client';
 dotenv.config();
 
 const prisma = new PrismaClient();
-
 const app = express();
-app.use(cors());
+
+// Configuração do CORS
+const corsOptions = {
+  origin: ['https://seu-app.vercel.app'], // Substitua pelo domínio do seu app no Vercel
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  credentials: true,
+};
+
+app.use(cors(corsOptions)); // Adicione esta linha
+
 app.use(express.json());
 
 // Listar todos os usuários
