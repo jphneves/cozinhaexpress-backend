@@ -13,7 +13,8 @@ const app = express();
 // Configuração do CORS
 const corsOptions = {
   origin: [
-    'https://cozinha-express.vercel.app', 
+    'https://cozinha-express.vercel.app',
+    'https://cozinha-express-git-main-jphneves-projects.vercel.app/',
     'http://localhost:3000' 
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
