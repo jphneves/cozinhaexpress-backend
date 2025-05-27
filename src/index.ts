@@ -15,6 +15,7 @@ const corsOptions = {
   origin: [
     'https://cozinha-express.vercel.app',
     'https://cozinha-express-git-main-jphneves-projects.vercel.app/',
+    'https://cozinhaexpress-backend-production.up.railway.app/login',
     'http://localhost:3000' 
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
