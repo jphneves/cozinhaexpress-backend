@@ -12,7 +12,7 @@ const app = express();
 
 // Configuração do CORS
 const corsOptions = {
-  origin: ['https://seu-app.vercel.app'], // Substitua pelo domínio do seu app no Vercel
+  origin: ['https://cozinha-express.vercel.app'], // Substitua pelo domínio do seu app no Vercel
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   credentials: true,
 };
