@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import sql from './db';
 import bcrypt from 'bcrypt';
 import { PrismaClient } from '@prisma/client';
+import { createClient } from '@supabase/supabase-js';
 
 dotenv.config();
 
@@ -22,9 +23,42 @@ const corsOptions = {
   credentials: true,
 };
 
-app.use(cors(corsOptions)); // Adicione esta linha
-
+app.use(cors(corsOptions));
 app.use(express.json());
+
+// Inicializando o cliente Supabase
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+// Rota de login
+app.post('/login', async (req, res) => {
+  const { email, password } = req.body;
+
+  const { data: { user }, error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
+
+  if (error) {
+    return res.status(401).json({ error: error.message });
+  }
+
+  res.status(200).json({ user });
+});
+
+// Rota protegida
+app.get('/usuarios', async (req, res) => {
+  const { data, error } = await supabase.auth.getUser();
+
+  if (error || !data.user) {
+    return res.status(401).json({ error: 'Usuário não autenticado' });
+  }
+
+  // Aqui você pode buscar os usuários no banco de dados
+  const usuarios = await prisma.usuario.findMany();
+  res.json(usuarios);
+});
 
 // Listar todos os usuários
 app.get('/usuarios', async (req, res) => {
@@ -87,7 +121,6 @@ app.put('/usuarios/:id', async (req, res) => {
   const { id } = req.params;
   const { email, senha } = req.body;
   try {
-    // É uma boa prática fazer hash da senha também na atualização, se ela for fornecida
     const dataToUpdate: { email?: string; senha?: string } = {};
     if (email) {
       dataToUpdate.email = email;
@@ -124,29 +157,6 @@ app.delete('/usuarios/:id', async (req, res) => {
       return res.status(404).json({ error: 'Usuário não encontrado' });
     }
     res.status(204).send();
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.post('/login', async (req, res) => {
-  const { email, senha } = req.body;
-  console.log('Tentativa de login recebida:', { email, senha_recebida: senha ? 'SIM' : 'NÃO' });
-  try {
-    const usuario = await prisma.usuario.findUnique({
-      where: { email },
-    });
-
-    if (!usuario) {
-      return res.status(400).json({ error: 'Usuário não encontrado' });
-    }
-
-    const senhaConfere = await bcrypt.compare(senha, usuario.senha);
-    if (!senhaConfere) {
-      return res.status(400).json({ error: 'Senha incorreta' });
-    }
-
-    res.status(200).json({ usuario });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
