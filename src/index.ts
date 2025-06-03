@@ -152,6 +152,62 @@ app.post('/login', async (req, res) => {
   }
 });
 
+// Alterar senha
+app.post('/api/user/change-password', async (req, res) => {
+  const { email, currentPassword, newPassword } = req.body;
+  try {
+    const usuario = await prisma.usuario.findUnique({
+      where: { email },
+    });
+
+    if (!usuario) {
+      return res.status(400).json({ error: 'Usuário não encontrado' });
+    }
+
+    const senhaConfere = await bcrypt.compare(currentPassword, usuario.senha);
+    if (!senhaConfere) {
+      return res.status(400).json({ error: 'Senha atual incorreta' });
+    }
+
+    const novaSenhaHash = await bcrypt.hash(newPassword, 10);
+    const result = await prisma.usuario.update({
+      where: { email },
+      data: { senha: novaSenhaHash },
+    });
+
+    res.status(200).json({ message: 'Senha alterada com sucesso' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Excluir conta
+app.delete('/api/user/delete-account', async (req, res) => {
+  const { email, password } = req.body;
+  try {
+    const usuario = await prisma.usuario.findUnique({
+      where: { email },
+    });
+
+    if (!usuario) {
+      return res.status(400).json({ error: 'Usuário não encontrado' });
+    }
+
+    const senhaConfere = await bcrypt.compare(password, usuario.senha);
+    if (!senhaConfere) {
+      return res.status(400).json({ error: 'Senha incorreta' });
+    }
+
+    await prisma.usuario.delete({
+      where: { email },
+    });
+
+    res.status(200).json({ message: 'Conta excluída com sucesso' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
