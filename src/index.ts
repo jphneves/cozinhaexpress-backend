@@ -7,7 +7,20 @@ import { PrismaClient } from '@prisma/client';
 
 dotenv.config();
 
-const prisma = new PrismaClient();
+// Garantir uma única instância do Prisma Client
+// Declaração para evitar erro de tipo no TypeScript
+declare global {
+  var prisma: PrismaClient | undefined;
+}
+
+const prisma = global.prisma || new PrismaClient();
+
+if (process.env.NODE_ENV !== 'production') {
+  global.prisma = prisma;
+}
+
+console.log('Prisma Client inicializado');
+
 const app = express();
 
 // Configuração do CORS
