@@ -13,13 +13,20 @@ declare global {
   var prisma: PrismaClient | undefined;
 }
 
-const prisma = global.prisma || new PrismaClient();
+// Configurar Prisma para desativar prepared statements no Supabase
+const prisma = global.prisma || new PrismaClient({
+  datasources: {
+    db: {
+      url: process.env.DATABASE_URL + '&pgbouncer=true&prepare=false',
+    },
+  },
+});
 
 if (process.env.NODE_ENV !== 'production') {
   global.prisma = prisma;
 }
 
-console.log('Prisma Client inicializado');
+console.log('Prisma Client inicializado com configuração para Supabase');
 
 const app = express();
 
@@ -157,7 +164,12 @@ app.post('/login', async (req, res) => {
 
     res.status(200).json({ usuario });
   } catch (err: any) {
+    console.error('Erro no login:', err);
     res.status(500).json({ error: err.message });
+    // Desconectar Prisma em caso de erro para evitar prepared statement issues
+    await prisma.$disconnect().catch((e) => console.error('Erro ao desconectar Prisma:', e));
+    // Reconectar para próximas requisições
+    await prisma.$connect().catch((e) => console.error('Erro ao reconectar Prisma:', e));
   }
 });
 
