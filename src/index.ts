@@ -13,11 +13,11 @@ declare global {
   var prisma: PrismaClient | undefined;
 }
 
-// Configurar Prisma para desativar prepared statements no Supabase
+// Configurar Prisma para usar a URL direta do Supabase com pooler de transações
 const prisma = global.prisma || new PrismaClient({
   datasources: {
     db: {
-      url: process.env.DATABASE_URL + '&pgbouncer=true&prepare=false',
+      url: process.env.DATABASE_URL,
     },
   },
 });
@@ -26,7 +26,7 @@ if (process.env.NODE_ENV !== 'production') {
   global.prisma = prisma;
 }
 
-console.log('Prisma Client inicializado com configuração para Supabase');
+console.log('Prisma Client inicializado com URL direta do Supabase');
 
 const app = express();
 
@@ -45,9 +45,12 @@ app.use(express.json());
 // Listar todos os usuários
 app.get('/usuarios', async (req, res) => {
   try {
+    console.log('Tentando listar usuários do Supabase com Prisma');
     const usuarios = await prisma.usuario.findMany();
+    console.log('Usuários encontrados:', usuarios);
     res.json(usuarios);
   } catch (err: any) {
+    console.error('Erro geral ao listar usuários:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -103,7 +106,6 @@ app.put('/usuarios/:id', async (req, res) => {
   const { id } = req.params;
   const { email, senha } = req.body;
   try {
-    // É uma boa prática fazer hash da senha também na atualização, se ela for fornecida
     const dataToUpdate: { email?: string; senha?: string } = {};
     if (email) {
       dataToUpdate.email = email;
@@ -166,10 +168,6 @@ app.post('/login', async (req, res) => {
   } catch (err: any) {
     console.error('Erro no login:', err);
     res.status(500).json({ error: err.message });
-    // Desconectar Prisma em caso de erro para evitar prepared statement issues
-    await prisma.$disconnect().catch((e) => console.error('Erro ao desconectar Prisma:', e));
-    // Reconectar para próximas requisições
-    await prisma.$connect().catch((e) => console.error('Erro ao reconectar Prisma:', e));
   }
 });
 
@@ -226,6 +224,22 @@ app.delete('/api/user/delete-account', async (req, res) => {
     res.status(200).json({ message: 'Conta excluída com sucesso' });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// Endpoint de teste para verificar conexão com Supabase
+app.get('/test-supabase', async (req, res) => {
+  try {
+    console.log('Testando conexão com Supabase');
+    // Tentar uma query simples para verificar conexão
+    const usuarios = await prisma.usuario.findMany({
+      take: 1,
+    });
+    console.log('Conexão com Supabase bem-sucedida:', usuarios);
+    res.status(200).json({ message: 'Conexão com Supabase bem-sucedida', data: usuarios });
+  } catch (err: any) {
+    console.error('Erro geral ao testar Supabase:', err);
+    res.status(500).json({ error: 'Erro geral ao testar Supabase', details: err.message });
   }
 });
 
