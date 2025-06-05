@@ -4,6 +4,9 @@ import dotenv from 'dotenv';
 import sql from './db';
 import bcrypt from 'bcrypt';
 import { PrismaClient } from '@prisma/client';
+import { supabase } from './supabaseClient'; // Importa o cliente Supabase
+import axios from 'axios'; // Importa o axios
+import { translate } from '@vitalets/google-translate-api'; // Importa a nova biblioteca de tradução
 
 dotenv.config();
 
@@ -224,6 +227,80 @@ app.delete('/api/user/delete-account', async (req, res) => {
     res.status(200).json({ message: 'Conta excluída com sucesso' });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// Rota para buscar e traduzir uma receita pelo ID
+app.get('/recipe/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+      // 1. Tenta buscar a receita do cache no Supabase
+      const { data: cachedRecipe, error: cacheError } = await supabase
+          .from('translated_recipes')
+          .select('recipe_data_pt')
+          .eq('meal_db_id', id)
+          .single();
+
+      if (cacheError && cacheError.code !== 'PGRST116') { // Ignora o erro "row not found"
+          throw cacheError;
+      }
+      
+      if (cachedRecipe) {
+          console.log(`✅ Receita ${id} encontrada no cache do Supabase!`);
+          return res.json(cachedRecipe.recipe_data_pt);
+      }
+
+      // 2. Se não estiver no cache, busca na API TheMealDB
+      console.log(`🔍 Receita ${id} não encontrada no cache. Buscando no TheMealDB...`);
+      const mealResponse = await axios.get(`https://www.themealdb.com/api/json/v1/1/lookup.php?i=${id}`);
+      const meal = mealResponse.data.meals?.[0];
+
+      if (!meal) {
+          return res.status(404).json({ message: 'Receita não encontrada' });
+      }
+
+      // 3. Traduz os campos necessários
+      const textsToTranslate = [
+          meal.strMeal,
+          meal.strInstructions,
+          // Adiciona todos os ingredientes que não são nulos ou vazios
+          ...Object.keys(meal)
+              .filter(key => key.startsWith('strIngredient') && meal[key])
+              .map(key => meal[key]),
+      ];
+      
+      // Traduz todos os textos em paralelo
+      const translationPromises = textsToTranslate.map(text => 
+        translate(text || '', { from: 'en', to: 'pt' })
+      );
+      const translatedResults = await Promise.all(translationPromises);
+      const translations = translatedResults.map(t => t.text);
+
+      // 4. Monta o objeto final com os dados traduzidos
+      const translatedMeal: { [key: string]: any } = { ...meal }; // Copia o objeto original
+      translatedMeal.strMeal = translations[0];
+      translatedMeal.strInstructions = translations[1];
+
+      let translationIndex = 2; // Começa no índice 2, pois 0 é o nome e 1 são as instruções
+      Object.keys(meal)
+          .filter(key => key.startsWith('strIngredient') && meal[key])
+          .forEach(key => {
+              translatedMeal[key] = translations[translationIndex++];
+          });
+      
+      // 5. Salva o resultado no cache do Supabase para futuras requisições
+      console.log(`💾 Salvando receita ${id} traduzida no Supabase...`);
+      await supabase
+          .from('translated_recipes')
+          .insert({ meal_db_id: id, recipe_data_pt: translatedMeal });
+
+      // 6. Retorna o objeto traduzido para o app
+      res.json(translatedMeal);
+
+  } catch (error) {
+      console.error('Erro no processo da receita:', error);
+      res.status(500).json({ message: 'Erro interno no servidor' });
   }
 });
 
