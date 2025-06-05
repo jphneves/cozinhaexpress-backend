@@ -1,7 +1,6 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import sql from './db';
 import bcrypt from 'bcrypt';
 import { PrismaClient } from '@prisma/client';
 import { supabase } from './supabaseClient'; // Importa o cliente Supabase
@@ -324,8 +323,3 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
 });
-
-export async function getInstruments() {
-  const instruments = await sql`SELECT * FROM instruments`;
-  return instruments;
-}
