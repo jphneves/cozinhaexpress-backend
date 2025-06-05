@@ -231,7 +231,7 @@ app.delete('/api/user/delete-account', async (req, res) => {
 });
 
 // Rota para buscar e traduzir uma receita pelo ID
-app.get('/recipe/:id', async (req, res) => {
+app.get('/api/recipe/:id', async (req, res) => {
   const { id } = req.params;
 
   try {
